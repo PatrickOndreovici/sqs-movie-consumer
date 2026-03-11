@@ -16,7 +16,7 @@ type Consumer struct {
 	QueueName string
 }
 
-func StartPool[T any](serviceFunc func(ctx context.Context, dto *T) error, consumer *Consumer) {
+func StartPool[T any](serviceFunc func(dto *T) error, consumer *Consumer) {
 	ctx := context.Background()
 
 	params := &sqs.ReceiveMessageInput{
@@ -55,7 +55,7 @@ func startWorkers[T any](
 	msgCh chan types.Message,
 	wg *sync.WaitGroup,
 	consumer *Consumer,
-	serviceFunc func(ctx context.Context, dto *T) error,
+	serviceFunc func(dto *T) error,
 ) {
 	processingMessages := &sync.Map{} // tracks in-flight message IDs to avoid duplicates
 
@@ -70,7 +70,7 @@ func worker[T any](
 	wg *sync.WaitGroup,
 	consumer *Consumer,
 	processingMessages *sync.Map,
-	serviceFunc func(ctx context.Context, dto *T) error,
+	serviceFunc func(dto *T) error,
 ) {
 	for msg := range msgCh { // each worker waits for messages from the channel
 		// Deduplicate: skip if another worker is already handling this message ID
@@ -90,7 +90,7 @@ func worker[T any](
 		}
 
 		// Call your business logic
-		if err := serviceFunc(ctx, &dto); err != nil {
+		if err := serviceFunc(&dto); err != nil {
 			fmt.Println("Error processing message:", err)
 			// Don't delete from SQS — let visibility timeout expire so it retries
 		} else {
